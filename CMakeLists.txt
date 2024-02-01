@@ -5,9 +5,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Tine for project specs.
 project(
-    TiDoc
+    Thingy
     VERSION 1.0
-    DESCRIPTION "Document Creator for TI-84 PCE."
     LANGUAGES CXX 
 )
 
@@ -37,8 +36,15 @@ FetchContent_Declare(
 
 include(GoogleTest)
 
+add_subdirectory(lib/tui)
+
 add_executable(${PROJECT_NAME} src/main.cpp)
 target_link_libraries(${PROJECT_NAME} 
     PUBLIC ReqCompilerFlags
+
+    PRIVATE
+    tui
 )
+
+
 

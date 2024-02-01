@@ -1,9 +1,9 @@
 
 #include <iostream>
+#include <tui/Util.h>
 
 using namespace std;
 
 int main() {
-    cout << "Hello, World!\n";
+    tui::printAt(0, 0, "Hello World!");
 }
-
