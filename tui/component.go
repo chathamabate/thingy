@@ -145,45 +145,6 @@ func (cd *CompDefault) Cleanup() {
 
 }
 
-// Example Plain Text Component.
-type CompPlainText struct {
-    CompDefault
-    label string
-}
-
-func NewCompPlainText(l string) *CompPlainText {
-    return &CompPlainText{label: l} 
-}
-
-func (cpt *CompPlainText) Draw(s tcell.Screen) bool {
-    if !cpt.RedrawNeeded {
-        return false
-    }
-
-    st := tcell.StyleDefault.Background(tcell.ColorRed).Foreground(tcell.ColorWhite)
-
-    for r := 0; r < cpt.Rows; r++ {
-        for c := 0; c <  cpt.Cols; c++ {
-            s.SetContent(c + cpt.C, r + cpt.R, ' ', nil, st)
-        }
-    }
-
-    runeNum := 0
-    for _, ru := range cpt.label {
-        r := runeNum / cpt.Cols
-        if r >= cpt.Rows {
-            break
-        }
-
-        c := runeNum % cpt.Cols
-        
-        s.SetContent(c + cpt.C, r + cpt.R, ru, nil, st)
-        runeNum++
-    }
-
-    cpt.RedrawNeeded = false
-    return true
-}
 
 
 
