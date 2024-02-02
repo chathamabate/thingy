@@ -1,7 +1,6 @@
 package tui
 
 import (
-	"fmt"
 	"time"
 
 	tcell "github.com/gdamore/tcell/v2"
@@ -12,29 +11,23 @@ type EventQueue interface {
 }
 
 type Comp interface {
-    GetParent() Comp
-
     // Life cycle functions.
 
     // This should only ever be called once.
-    // It should set the parent component and initialize child components.
-    // NOTE: This component must only ever belong to a SINGLE parent.
-    //
-    // It should NEVER be appended to two different components.
-    Init(p Comp) error
+    Init() error
 
     // NOTE: Resize is promised to be called once right after init.
     // Every time the terminal is resized afterwards, this will be called.
-    Resize(rows, cols int)
+    Resize(r, c int, rows, cols int)
 
     // ev will never be a resize event.
     // This will always be passed to the above resize function.
     ForwardEvent(ev tcell.Event) error
     Update() error
 
-    // NOTE: Rendering of any kind should ONLY be done in this funciton.
-    // We return true if the render actually did anything.
-    Render(r, c int) bool
+    // Draw is called every cycle.
+    // Returns true only when drawing actually occurred!
+    Draw(s tcell.Screen) bool
 
     // This is called at the end of a Components lifetime.
     // Either when the User exits the program, or when this component goes out of scope.
@@ -54,7 +47,7 @@ func RunTUI(root Comp, updateDur time.Duration) error {
     defer s.Fini()
 
     // Initialize our components.
-    err = root.Init(nil)
+    err = root.Init()
     if err != nil {
         return err
     }
@@ -71,8 +64,8 @@ func RunTUI(root Comp, updateDur time.Duration) error {
             e := s.PollEvent()
             switch ev := e.(type) {
             case *tcell.EventResize:
-                rows, cols := ev.Size()
-                root.Resize(rows, cols)
+                cols, rows := ev.Size()
+                root.Resize(0, 0, rows, cols)
                 break
             case *tcell.EventKey:
                 if ev.Key() == tcell.KeyCtrlC {
@@ -96,7 +89,7 @@ func RunTUI(root Comp, updateDur time.Duration) error {
             return err
         }
 
-        if root.Render(0, 0) {
+        if root.Draw(s) {
             s.Show()
         }
 
@@ -113,41 +106,86 @@ func RunTUI(root Comp, updateDur time.Duration) error {
 // Default component implementation.
 // Has no children, displays nothing.
 type CompDefault struct {
-    Parent Comp
+    R int
+    C int
+
     Rows int
     Cols int
+
+    RedrawNeeded bool
 }
 
-func (c *CompDefault) ForwardEvent(ev tcell.Event) error { 
+func (cd *CompDefault) ForwardEvent(ev tcell.Event) error { 
     return nil
 }
 
-func (c *CompDefault) Resize(rows, cols int) { 
-    c.Rows = rows
-    c.Cols = cols
+func (cd *CompDefault) Resize(r, c int, rows, cols int) { 
+    cd.R = r
+    cd.C = c
+
+    cd.Rows = rows
+    cd.Cols = cols
+
+    cd.RedrawNeeded = true
 }
 
-func (c *CompDefault) GetParent() Comp {
-    return c.Parent
-}
-
-func (c *CompDefault) Init(parent Comp) error {
-    c.Parent = parent
-
+func (cd *CompDefault) Init() error {
     return nil
 }
 
-func (c *CompDefault) Update() error {
+func (cd *CompDefault) Update() error {
     return nil
 }
 
-func (c *CompDefault) Render(int, int) bool {
+func (cd *CompDefault) Draw(s tcell.Screen) bool {
     return false
 }
 
-func (c *CompDefault) Cleanup() {
+func (cd *CompDefault) Cleanup() {
 
 }
+
+// Example Plain Text Component.
+type CompPlainText struct {
+    CompDefault
+    label string
+}
+
+func NewCompPlainText(l string) *CompPlainText {
+    return &CompPlainText{label: l} 
+}
+
+func (cpt *CompPlainText) Draw(s tcell.Screen) bool {
+    if !cpt.RedrawNeeded {
+        return false
+    }
+
+    st := tcell.StyleDefault.Background(tcell.ColorRed).Foreground(tcell.ColorWhite)
+
+    for r := 0; r < cpt.Rows; r++ {
+        for c := 0; c <  cpt.Cols; c++ {
+            s.SetContent(c + cpt.C, r + cpt.R, ' ', nil, st)
+        }
+    }
+
+    runeNum := 0
+    for _, ru := range cpt.label {
+        r := runeNum / cpt.Cols
+        if r >= cpt.Rows {
+            break
+        }
+
+        c := runeNum % cpt.Cols
+        
+        s.SetContent(c + cpt.C, r + cpt.R, ru, nil, st)
+        runeNum++
+    }
+
+    cpt.RedrawNeeded = false
+    return true
+}
+
+
 
 
 

@@ -8,8 +8,7 @@ import (
 
 
 func main() {
-    d := tui.CompDefault{
-    }
+    cpt := tui.NewCompPlainText("Hello World")
 
-    tui.RunTUI(&d, time.Duration(50 * int64(time.Millisecond)))
+    tui.RunTUI(cpt, time.Duration(50 * int64(time.Millisecond)))
 }
