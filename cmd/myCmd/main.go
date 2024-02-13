@@ -8,6 +8,7 @@ import (
 )
 
 
+
 func main() {
     root := tui.NewCompBordered(
         tcell.StyleDefault.Background(tcell.ColorRed),

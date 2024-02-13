@@ -6,6 +6,7 @@ import (
 	tcell "github.com/gdamore/tcell/v2"
 )
 
+
 type EventQueue interface {
     PostEvent(ev tcell.Event) error 
 }
@@ -14,7 +15,7 @@ type Comp interface {
     // Life cycle functions.
 
     // This should only ever be called once.
-    Init() error
+    Start() error
 
     // NOTE: Resize is promised to be called once right after init.
     // Every time the terminal is resized afterwards, this will be called.
@@ -47,7 +48,7 @@ func RunTUI(root Comp, updateDur time.Duration) error {
     defer s.Fini()
 
     // Initialize our components.
-    err = root.Init()
+    err = root.Start()
     if err != nil {
         return err
     }
@@ -106,13 +107,51 @@ func RunTUI(root Comp, updateDur time.Duration) error {
 // Default component implementation.
 // Has no children, displays nothing.
 type CompDefault struct {
-    R int
-    C int
+    r int
+    c int
 
-    Rows int
-    Cols int
+    rows int
+    cols int
 
-    RedrawNeeded bool
+    redrawNeeded bool
+}
+
+func NewCompDefualt() *CompDefault {
+    return &CompDefault{}
+}
+
+func (cd *CompDefault) GetR() int {
+    return cd.r
+}
+
+func (cd *CompDefault) GetC() int {
+    return cd.c
+}
+
+func (cd *CompDefault) GetRows() int {
+    return cd.rows
+}
+
+func (cd *CompDefault) GetCols() int {
+    return cd.cols
+}
+
+func (cd *CompDefault) SetRedrawNeeded(rn bool) {
+    cd.redrawNeeded = rn
+}
+
+func (cd *CompDefault) GetRedrawNeeded() bool {
+   return cd.redrawNeeded 
+}
+
+func (cd *CompDefault) PopRedrawNeeded() bool {
+    temp := cd.redrawNeeded
+    cd.redrawNeeded = false
+    return temp
+}
+
+func (cd *CompDefault) Start() error {
+    return nil
 }
 
 func (cd *CompDefault) ForwardEvent(ev tcell.Event) error { 
@@ -120,17 +159,13 @@ func (cd *CompDefault) ForwardEvent(ev tcell.Event) error {
 }
 
 func (cd *CompDefault) Resize(r, c int, rows, cols int) { 
-    cd.R = r
-    cd.C = c
+    cd.r = r
+    cd.c = c
 
-    cd.Rows = rows
-    cd.Cols = cols
+    cd.rows = rows
+    cd.cols = cols
 
-    cd.RedrawNeeded = true
-}
-
-func (cd *CompDefault) Init() error {
-    return nil
+    cd.redrawNeeded = true
 }
 
 func (cd *CompDefault) Update() error {
