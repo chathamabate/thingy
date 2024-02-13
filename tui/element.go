@@ -35,18 +35,69 @@ type Element interface {
 
     // This function is called when it is time for this element to 
     // leave an environemnt. Like above, make sure all children leave as well!
+    //
+    // NOTE: We must free our ID in this call!
     Leave(ectx *ElementContext)
 }
 
 // Inside an environment, every element has a unique ElementID.
-type ElementID uint64
+type ElementID int64
+const NO_PARENT = -1
 
 type Environment struct {
     elements map[ElementID]*ElementContext
+
     rootID ElementID 
 }
 
+// This function detaches and element from its parent (if it has one)
+func (env *Environment) Detach(eid ElementID) {
+    ectx, ok := env.elements[eid]
+    if !ok {
+        return
+    }
+
+    // Already detached!
+    pid := ectx.parentID
+    if pid == NO_PARENT {
+        return
+    }
+
+    ectx.parentID = NO_PARENT 
+
+    // Our element has no parent pointer now.
+    // Now are old parent must have no record of our
+    // element.
+
+    parent := env.elements[pid]
+    parentCIDs := parent.childIDs
+
+    // eid must be in the child array of parent.
+    // Find its index, then perform the removal.
+    i := 0
+    for ; parentCIDs[i] != eid; i++ {
+    }
+
+    parent.childIDs = append(parentCIDs[:i], parentCIDs[i+1:]...)
+
+    parent.self.SetDrawFlag(true)
+}
+
 func (env *Environment) MakeRoot(eid ElementID) {
+    // Already a root, do nothing.
+    if eid == env.rootID {
+        return
+    }
+
+    ectx, ok := env.elements[eid]
+    if !ok {
+        return
+    }
+
+    env.Detach(eid)
+
+    env.rootID = eid
+    ectx.self.SetDrawFlag(true)
 }
 
 func (env *Environment) ReserveID() ElementID {
