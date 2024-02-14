@@ -59,7 +59,7 @@ type Environment struct {
 func (env *Environment) GetElement(eid ElementID) (*ElementContext, error) {
     ectx, ok := env.elements[eid] 
     if !ok {
-        return nil, fmt.Errorf("Unknown element id: %d", eid)
+        return nil, fmt.Errorf("GetElement: Unknown element id: %d", eid)
     }
 
     return ectx, nil
@@ -83,24 +83,26 @@ func (env *Environment) AttachAt(pid ElementID, eid ElementID, index int) error 
 func (env *Environment) attach(pid ElementID, eid ElementID, at bool, index int) (int, error) {
     ectx, err := env.GetElement(eid)
     if err != nil {
-        return 0, err
+        return 0, fmt.Errorf("attach: %w", err)
     }
 
     if ectx.parentID != NO_PARENT {
-        return 0, fmt.Errorf("Element already has parent: %d, %d", 
+        return 0, fmt.Errorf("attach: Element already has parent: %d, %d", 
             ectx.parentID, eid)
     }
 
     pctx, err := env.GetElement(pid)
     if err != nil {
-        return 0, err
+        return 0, fmt.Errorf("attach: %w", err)
     }
 
+    // Map our element to its new parent.
+    ectx.parentID = pid
+
+    // Map parent to its new child (at the right index)
     cidsLen := len(pctx.childIDs)
 
     if !at {
-        // Perform Attach.
-        ectx.parentID = pid
         pctx.childIDs = append(pctx.childIDs, eid)
 
         return cidsLen, nil
@@ -108,7 +110,7 @@ func (env *Environment) attach(pid ElementID, eid ElementID, at bool, index int)
 
     // Otherwise we use index!
     if index < 0 || cidsLen < index {
-        return 0, fmt.Errorf("Bad index given: %d", index)
+        return 0, fmt.Errorf("attach: Bad index given: %d", index)
     }
 
     pctx.childIDs = append(pctx.childIDs, 0)
@@ -122,16 +124,19 @@ func (env *Environment) attach(pid ElementID, eid ElementID, at bool, index int)
 
 // This function detaches and element from its parent (if it has one)
 func (env *Environment) Detach(eid ElementID) error {
-    ectx, ok := env.elements[eid]
-    if !ok {
-        return
+    ectx, err := env.GetElement(eid)
+    if err != nil {
+        return fmt.Errorf("Detach: %w", err)
     }
 
     // Already detached!
     pid := ectx.parentID
     if pid == NO_PARENT {
-        return
+        return fmt.Errorf("Detach: Element has no parent: %d", 
+            eid)
     }
+
+    // Perform detach!
 
     ectx.parentID = NO_PARENT 
 
@@ -150,24 +155,10 @@ func (env *Environment) Detach(eid ElementID) error {
 
     parent.childIDs = append(parentCIDs[:i], parentCIDs[i+1:]...)
 
-    parent.self.SetDrawFlag(true)
+    return nil
 }
 
 func (env *Environment) MakeRoot(eid ElementID) {
-    // Already a root, do nothing.
-    if eid == env.rootID {
-        return
-    }
-
-    ectx, ok := env.elements[eid]
-    if !ok {
-        return
-    }
-
-    env.Detach(eid)
-
-    env.rootID = eid
-    ectx.self.SetDrawFlag(true)
 }
 
 func (env *Environment) ReserveID() ElementID {
