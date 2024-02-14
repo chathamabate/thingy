@@ -2,9 +2,10 @@ package tui
 
 import (
 	"fmt"
-    "errors"
 	"github.com/gdamore/tcell/v2"
+    "time"
 )
+
 
 // An environment is kinda like the DOM in javascript.
 // It is a single object which stores the relationships between all
@@ -44,6 +45,24 @@ type Environment struct {
 
     // The screen this Environment draws to.
     screen tcell.Screen
+
+    // An 1 update tick event will be sent to the root
+    // per updateDur.
+    updateDur time.Duration
+
+    // When this is set to true, the environment will exit its
+    // run call this cycle.
+    exitRequested bool
+}
+
+func (env *Environment) CreateAndRegister(f ElementFactory) (ElementID, error) {
+    eid, err := f(env)
+
+    if err != nil {
+        return -1, fmt.Errorf("CreateAndRegister: %w", err)
+    }
+
+    return eid, nil
 }
 
 // Register adds an element to an environment and returns
@@ -87,6 +106,10 @@ func (env *Environment) Register(e Element) (ElementID, error) {
     e.Start()
 
     return eid, nil
+}
+
+func (env *Environment) RequestExit() {
+    env.exitRequested = true
 }
 
 func (env *Environment) getEnvEntry(eid ElementID) (*EnvEntry, error) {
@@ -221,22 +244,34 @@ func (env *Environment) MakeRoot(eid ElementID) error {
 
 // Event Forwarding Functions.
 
-func (env *Environment) ForwardResize(eid ElementID, r, c, int, rows, cols int) error {
+func (env *Environment) ForwardResize(eid ElementID, r, c int, rows, cols int) error {
     ee, err := env.getEnvEntry(eid)
     if err != nil {
-        return err
+        return fmt.Errorf("ForwardResize: %w", err)
     }
 
-    return ee.e.Resize(ee.ectx, r, c, rows, cols)
+    err = ee.e.Resize(ee.ectx, r, c, rows, cols)
+    if err != nil {
+        return fmt.Errorf("ForwardResize: %w", err)
+    }
+
+    ee.e.SetDrawFlag(true)
+
+    return err
 }
 
 func (env *Environment) ForwardEvent(eid ElementID, ev tcell.Event) error {
     ee, err := env.getEnvEntry(eid)
     if err != nil {
-        return err
+        return fmt.Errorf("ForwardEvent: %w", err)
     }
 
-    return ee.e.HandleEvent(ee.ectx, ev)
+    err = ee.e.HandleEvent(ee.ectx, ev)
+    if err != nil {
+        return fmt.Errorf("ForwardEvent: %w", err)
+    }
+
+    return nil
 }
 
 // This returns true if and only if Draw was called on at least one element.
@@ -279,7 +314,7 @@ func (env *Environment) Deregister(eid ElementID) error {
 
     ee, err := env.getEnvEntry(eid)
     if err != nil {
-        return err
+        return fmt.Errorf("Deregister: %w", err)
     }
     ectx := ee.ectx
 
@@ -309,5 +344,129 @@ func (env *Environment) Deregister(eid ElementID) error {
     }
 
     return nil
+}
+
+// This deregisters all elements in the Environment!
+// Essenstially a clean up call.
+func (env *Environment) DeregisterAll() error {
+    for i := range env.elements {
+        ee := env.elements[i]
+
+        // Only deregister elements with no parents.
+        // Others will be dealt with recursively.
+        if ee.ectx.parentID == NULL_EID {
+            err := env.Deregister(ElementID(i))
+
+            // A single error stops the whole thing.
+            if err != nil {
+                return fmt.Errorf("DeregisterAll: %w", err)
+            }
+        }
+    }
+
+    // Make sure to clear the root.
+    env.rootID = NULL_EID
+
+    return nil
+}
+
+type UpdateTickEvent struct {
+    at time.Time
+}
+
+func NewUpdateTickEvent() *UpdateTickEvent {
+    return &UpdateTickEvent {
+        at: time.Now(),
+    }
+}
+
+func (u UpdateTickEvent) When() time.Time {
+    return u.at
+}
+
+
+// NOTE: UI Loop organization:
+//
+// 1) Store the duration of the previous iteration
+//    including sleep time if needed.
+//
+// 2) Synchronosly process all queued tcell events through
+//    through the root.
+//
+// 3) Calculate how many ticks occured during the elapsed time of the 
+//    last iteration. Send that many update events through the root.
+//
+// 4) Draw!
+
+func (env *Environment) Run() error {
+    env.exitRequested = false
+    var err error
+
+    iterStartTime := time.Now()
+    expIterDur := env.updateDur.Milliseconds()
+
+    for {
+        // This is the time it took to complete the last iteration.
+        lastIterDur := time.Since(iterStartTime).Milliseconds()
+        extraTime := expIterDur - lastIterDur
+
+        // If our iteration finished faster than expected.
+        // Let's sleep!
+        if extraTime > 0 {
+            time.Sleep(time.Duration(extraTime * int64(time.Millisecond)))
+
+            // Recalc iteration duration after sleeping.
+            lastIterDur = time.Since(iterStartTime).Milliseconds()
+        }
+
+        // Now we start the next iteration!
+        iterStartTime = time.Now()
+
+        // First poll for system events.
+        for env.screen.HasPendingEvent() {
+            e := env.screen.PollEvent()
+
+            switch ev := e.(type) {
+            case *tcell.EventResize:
+                cols, rows := ev.Size()
+                err = env.ForwardResize(env.rootID, 0, 0, rows, cols, )
+                break
+
+            case *tcell.EventKey:
+                if ev.Key() == tcell.KeyCtrlC {
+                    env.exitRequested = true
+                    break
+                }
+
+                err = env.ForwardEvent(env.rootID, ev)
+                break
+            default:
+                err = env.ForwardEvent(env.rootID, e)
+                break
+            }
+
+            if env.exitRequested {
+                return nil
+            }
+
+            if err != nil {
+                return fmt.Errorf("Run: %w", err)
+            }
+        }
+
+        // Now let's send our update ticks.
+        ticksPassed := int(lastIterDur / expIterDur)
+        for i := 0; i < ticksPassed; i++ {
+            err = env.ForwardEvent(env.rootID, NewUpdateTickEvent())
+            if err != nil {
+                return fmt.Errorf("Run: %w", err)
+            }
+        }
+
+        // Finally, time to draw!
+        if env.Draw() {
+            env.screen.Show()
+        }
+    }
 }
 

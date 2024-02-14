@@ -2,29 +2,32 @@ package main
 
 import "fmt"
 
-type I interface {
-    Mutate()
-}
 
 type X struct {
     Val int
 }
 
-func (x X) Mutate() {
+func (x *X) Mutate() {
     x.Val++
+}
+
+type Y struct {
+    X
+}
+ 
+func (y *Y) Mutate() {
+    y.Val += 2
 }
 
 
 func main() {
-    a := X{Val:10}
+    a := Y{
+        X: X{
+            Val: 10,
+        },
+    }
 
-    var i I
-
-    i = a   // In this case it's passed by value!!!
-    j := i
-
-    i.Mutate()
-    j.Mutate()
+    a.X.Mutate()
 
     fmt.Println(a)
 }

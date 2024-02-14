@@ -5,6 +5,15 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
+// An element factory is meant to create an element then register
+// it into the environment.
+// Returning the element's new ID. 
+//
+// NOTE: I am using the factory design pattern here to encourage the 
+// user to never have direct access to an element which is part of
+// an environment.
+type ElementFactory func (*Environment) (ElementID, error)
+
 type Element interface {
     // When an element is registered, start is called.
     //
@@ -18,6 +27,9 @@ type Element interface {
     //
     // NOTE: if this is a container element, a resize should be
     // called recursively for child elements.
+    // 
+    // No need to set the draw flag in this function, this is automatically
+    // handled by the environment when a resize is forwarded.
     Resize(ectx *ElementContext, r, c int, rows, cols int) error
 
     // All non-resize events are forwarded through this call.
