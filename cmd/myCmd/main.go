@@ -10,7 +10,7 @@ type X struct {
     Val int
 }
 
-func (x *X) Mutate() {
+func (x X) Mutate() {
     x.Val++
 }
 
@@ -20,7 +20,7 @@ func main() {
 
     var i I
 
-    i = &a
+    i = a   // In this case it's passed by value!!!
     j := i
 
     i.Mutate()
