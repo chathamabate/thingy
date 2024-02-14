@@ -1,13 +1,17 @@
 package tui
 
-import "fmt"
+import (
+	"fmt"
+    "errors"
+	"github.com/gdamore/tcell/v2"
+)
 
 // An environment is kinda like the DOM in javascript.
-// It is a single object which stores the relationships between all 
+// It is a single object which stores the relationships between all
 // elements in the UI.
 //
 // NOTE: By design an environment is in no way thread-safe.
-// All actions on an environment are supposed to be synchronous and 
+// All actions on an environment are supposed to be synchronous and
 // non-blocking.
 
 type ElementID int
@@ -37,6 +41,9 @@ type Environment struct {
     ptrID ElementID
 
     rootID ElementID 
+
+    // The screen this Environment draws to.
+    screen tcell.Screen
 }
 
 // Register adds an element to an environment and returns
@@ -74,8 +81,10 @@ func (env *Environment) Register(e Element) (ElementID, error) {
         },
         e: e,
     }
-    
+
     env.fill++
+    
+    e.Start()
 
     return eid, nil
 }
@@ -185,8 +194,6 @@ func (env *Environment) Detach(eid ElementID) error {
     return nil
 }
 
-func (env *Environment) ClearRoot()
-
 func (env *Environment) MakeRoot(eid ElementID) error {
     // Clearing the root always works!
     if eid == NULL_EID {
@@ -210,6 +217,57 @@ func (env *Environment) MakeRoot(eid ElementID) error {
     env.rootID = eid
 
     return nil
+}
+
+// Event Forwarding Functions.
+
+func (env *Environment) ForwardResize(eid ElementID, r, c, int, rows, cols int) error {
+    ee, err := env.getEnvEntry(eid)
+    if err != nil {
+        return err
+    }
+
+    return ee.e.Resize(ee.ectx, r, c, rows, cols)
+}
+
+func (env *Environment) ForwardEvent(eid ElementID, ev tcell.Event) error {
+    ee, err := env.getEnvEntry(eid)
+    if err != nil {
+        return err
+    }
+
+    return ee.e.HandleEvent(ee.ectx, ev)
+}
+
+// This returns true if and only if Draw was called on at least one element.
+// This begins drawing starting at the root. Then going down.
+func (env *Environment) Draw() bool {
+    if env.rootID != NULL_EID {
+        return env.draw(env.rootID)
+    }
+
+    return false
+}
+
+// Draw recursive helper.
+func (env *Environment) draw(eid ElementID) bool {
+    ee := env.elements[eid]
+
+    drawOccured := false    
+
+    // Draw parent first.
+    if ee.e.GetDrawFlag() {
+        ee.e.Draw(env.screen)
+        ee.e.SetDrawFlag(false)
+        drawOccured = true
+    }
+
+    // Next draw children.
+    for _, cid := range ee.ectx.childIDs {
+        drawOccured = env.draw(cid) || drawOccured
+    }
+
+    return drawOccured
 }
 
 // NOTE: Unlike register, this Deregister is recursive.
@@ -236,6 +294,8 @@ func (env *Environment) Deregister(eid ElementID) error {
         env.elements[cid].ectx.parentID = NULL_EID
         env.Deregister(cid) // this should always succeed.
     }
+
+    ee.e.Stop()
 
     // finally, remove this guy from the env
     env.elements[eid] = nil

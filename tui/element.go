@@ -6,28 +6,38 @@ import (
 )
 
 type Element interface {
+    // When an element is registered, start is called.
+    //
+    // NOTE: This should NOT be recursive.
+    // When child elements are registered, start will be called for them.
+    // This call should only deal with what must occur for this 
+    // element alone, NOT its children.
+    Start()
 
-    Resize(ectx *ElementContext, r, c int, rows, cols int)
+    // This should resize the given element.
+    //
+    // NOTE: if this is a container element, a resize should be
+    // called recursively for child elements.
+    Resize(ectx *ElementContext, r, c int, rows, cols int) error
 
     // All non-resize events are forwarded through this call.
     // NOTE: This call should never block or result in an infinite looping of
     // events.
-    // 
-    // Returns true to request a redraw.
     HandleEvent(ectx *ElementContext, ev tcell.Event) error
     
     // Every element should have a boolean "drawFlag" when this flag is true,
     // there needs to be a redraw of THIS element. (NOT NECESSARILY its children)
     SetDrawFlag(f bool)
+    GetDrawFlag() bool
 
-    // If this is a container element, this SHOULD NOT return just the draw flag.
-    // It should recursively OR together the draw flag with RedrawNeeded() from the 
-    // child elements.
-    RedrawNeeded() bool
-
-    // NOTE: Drawing should be recursive. This should ALWAYS redraw this element, and
-    // recursively/conditionally redraw the child elements. (Depending on how this element is intended
-    // to work)
+    // This always draws just THIS element. Nothing recursive here.
+    // If Drawing this element requires the redrawing of children or vice versa,
+    // make sure to declare this explicitly in handle event somewhere.
+    //
+    // NOTE: Do not mess with the draw flag here... that is handled entirely
+    // by the environment.
+    // 
+    // NOTE: See environment.Draw.
     Draw(s tcell.Screen)
 
     // When an element is deregistered, stop is called.
