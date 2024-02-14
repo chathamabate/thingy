@@ -1,19 +1,30 @@
 package main
 
-import (
-	"time"
+import "fmt"
 
-	"github.com/chathamabate/thingy/tui"
-	"github.com/gdamore/tcell/v2"
-)
+type I interface {
+    Mutate()
+}
 
+type X struct {
+    Val int
+}
+
+func (x *X) Mutate() {
+    x.Val++
+}
 
 
 func main() {
-    root := tui.NewCompBordered(
-        tcell.StyleDefault.Background(tcell.ColorRed),
-        tui.NewCompPlainText("Hello World"),
-    )
+    a := X{Val:10}
 
-    tui.RunTUI(root, time.Duration(50 * int64(time.Millisecond)))
+    var i I
+
+    i = &a
+    j := i
+
+    i.Mutate()
+    j.Mutate()
+
+    fmt.Println(a)
 }

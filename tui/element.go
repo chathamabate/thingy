@@ -1,6 +1,11 @@
 package tui
 
-import "github.com/gdamore/tcell/v2"
+import (
+	"errors"
+	"fmt"
+
+	"github.com/gdamore/tcell/v2"
+)
 
 type Element interface {
     // NOTE: an element can be created before it is tied to 
@@ -29,8 +34,9 @@ type Element interface {
     // child elements.
     RedrawNeeded() bool
 
-    // NOTE: Drawing should be recursive. This should ALWAYS redraw this element, but
-    // conditionally redraw the child elements. (If this is a container that is)
+    // NOTE: Drawing should be recursive. This should ALWAYS redraw this element, and
+    // recursively/conditionally redraw the child elements. (Depending on how this element is intended
+    // to work)
     Draw(s tcell.Screen)
 
     // This function is called when it is time for this element to 
@@ -50,8 +56,72 @@ type Environment struct {
     rootID ElementID 
 }
 
+func (env *Environment) GetElement(eid ElementID) (*ElementContext, error) {
+    ectx, ok := env.elements[eid] 
+    if !ok {
+        return nil, fmt.Errorf("Unknown element id: %d", eid)
+    }
+
+    return ectx, nil
+}
+
+// Attach on element to another as a parent/child.
+// This by default is at the end, returns index of child in 
+// parents children array.
+// 
+// If eid points to an element with a parent, this function does nothing.
+func (env *Environment) Attach(pid ElementID, eid ElementID) (int, error) {
+    return env.attach(pid, eid, false, 0)
+}
+
+// Function for attaching at a specific index.
+func (env *Environment) AttachAt(pid ElementID, eid ElementID, index int) error {
+    _, err := env.attach(pid, eid, true, index)
+    return err
+}
+
+func (env *Environment) attach(pid ElementID, eid ElementID, at bool, index int) (int, error) {
+    ectx, err := env.GetElement(eid)
+    if err != nil {
+        return 0, err
+    }
+
+    if ectx.parentID != NO_PARENT {
+        return 0, fmt.Errorf("Element already has parent: %d, %d", 
+            ectx.parentID, eid)
+    }
+
+    pctx, err := env.GetElement(pid)
+    if err != nil {
+        return 0, err
+    }
+
+    cidsLen := len(pctx.childIDs)
+
+    if !at {
+        // Perform Attach.
+        ectx.parentID = pid
+        pctx.childIDs = append(pctx.childIDs, eid)
+
+        return cidsLen, nil
+    }
+
+    // Otherwise we use index!
+    if index < 0 || cidsLen < index {
+        return 0, fmt.Errorf("Bad index given: %d", index)
+    }
+
+    pctx.childIDs = append(pctx.childIDs, 0)
+    for i := cidsLen; i > index ; i-- {
+        pctx.childIDs[i] = pctx.childIDs[i-1]
+    }
+    pctx.childIDs[index] = eid
+
+    return index, nil
+}
+
 // This function detaches and element from its parent (if it has one)
-func (env *Environment) Detach(eid ElementID) {
+func (env *Environment) Detach(eid ElementID) error {
     ectx, ok := env.elements[eid]
     if !ok {
         return
