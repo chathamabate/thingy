@@ -126,12 +126,25 @@ func (env *Environment) RequestExit() {
 }
 
 func (env *Environment) getEnvEntry(eid ElementID) (*EnvEntry, error) {
+    if eid < 0 || len(env.elements) <= int(eid) {
+        return nil, fmt.Errorf("getEnvEntry: Out of bounds element id: %d", eid)
+    }
+
     ee := env.elements[eid] 
     if ee == nil {
         return nil, fmt.Errorf("getEnvEntry: Unknown element id: %d", eid)
     }
 
     return ee, nil
+}
+
+func (env *Environment) GetElementContext(eid ElementID) (*ElementContext, error) {
+    ee, err := env.getEnvEntry(eid)
+    if err != nil {
+        return nil, fmt.Errorf("GetElementContext: %w", err)
+    }
+
+    return ee.ectx, nil
 }
 
 // Attach on element to another as a parent/child.
@@ -292,6 +305,16 @@ func (env *Environment) ForwardEvent(eid ElementID, ev tcell.Event) error {
     return nil
 }
 
+func (env *Environment) SetDrawFlag(eid ElementID) error {
+    ee, err := env.getEnvEntry(eid)
+    if err != nil {
+        return fmt.Errorf("SetDrawFlag: %w", err)
+    }
+
+    ee.e.SetDrawFlag(true)
+    return nil
+}
+
 // This returns true if and only if Draw was called on at least one element.
 // This begins drawing starting at the root. Then going down.
 func (env *Environment) Draw() bool {
@@ -367,6 +390,9 @@ func (env *Environment) Deregister(eid ElementID) error {
 // This deregisters all elements in the Environment!
 // Essenstially a clean up call.
 func (env *Environment) DeregisterAll() error {
+    // Make sure to clear the root.
+    env.rootID = NULL_EID
+
     for i := range env.elements {
         ee := env.elements[i]
 
@@ -381,9 +407,6 @@ func (env *Environment) DeregisterAll() error {
             }
         }
     }
-
-    // Make sure to clear the root.
-    env.rootID = NULL_EID
 
     return nil
 }

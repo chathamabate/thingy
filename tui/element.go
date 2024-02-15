@@ -93,6 +93,22 @@ func (de *DefaultElement) Resize(ectx *ElementContext, r, c int, rows, cols int)
     return nil
 }
 
+func (de *DefaultElement) GetR() int {
+    return de.r
+}
+
+func (de *DefaultElement) GetC() int {
+    return de.c
+}
+
+func (de *DefaultElement) GetRows() int {
+    return de.rows
+}
+
+func (de *DefaultElement) GetCols() int {
+    return de.cols
+}
+
 func (de *DefaultElement) HandleEvent(ectx *ElementContext, ev tcell.Event) error {
     return nil
 }
@@ -108,7 +124,7 @@ func (de *DefaultElement) GetDrawFlag() bool {
 func (de *DefaultElement) Draw(s tcell.Screen) {
     for i := de.r; i < de.r + de.rows; i++ {
         for j := de.c; j < de.c + de.cols; j++ {
-            s.SetContent(i, j, ' ', nil, tcell.StyleDefault)
+            s.SetContent(j, i, ' ', nil, tcell.StyleDefault)
         }
     }
 }
