@@ -1,33 +1,22 @@
 package main
 
-import "fmt"
+import (
+	"log"
 
-
-type X struct {
-    Val int
-}
-
-func (x *X) Mutate() {
-    x.Val++
-}
-
-type Y struct {
-    X
-}
- 
-func (y *Y) Mutate() {
-    y.Val += 2
-}
+	"github.com/chathamabate/thingy/tui"
+	"github.com/gdamore/tcell/v2"
+)
 
 
 func main() {
-    a := Y{
-        X: X{
-            Val: 10,
-        },
+    s, err := tcell.NewScreen()
+    if err != nil {
+        log.Fatal(err)
     }
 
-    a.X.Mutate()
+    err = s.Init()
+    if err != nil {
+        log.Fatal(err)
+    }
 
-    fmt.Println(a)
 }

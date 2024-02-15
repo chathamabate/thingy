@@ -55,6 +55,19 @@ type Environment struct {
     exitRequested bool
 }
 
+func NewEnvironment(s tcell.Screen, mc int, ud time.Duration) *Environment {
+    return &Environment{
+        elements: make([]*EnvEntry, 10),
+        maxCapacity: mc,
+        fill: 0,
+        ptrID: 0,
+        rootID: NULL_EID,
+        screen: s,
+        updateDur: ud,
+        exitRequested: false,
+    }
+}
+
 func (env *Environment) CreateAndRegister(f ElementFactory) (ElementID, error) {
     eid, err := f(env)
 
@@ -239,6 +252,11 @@ func (env *Environment) MakeRoot(eid ElementID) error {
 
     env.rootID = eid
 
+    // When something is made a root, it must be resized to fit the current
+    // screen.
+    cols, rows := env.screen.Size() 
+    err = env.ForwardResize(env.rootID, 0, 0, rows, cols)
+
     return nil
 }
 
@@ -384,7 +402,6 @@ func (u UpdateTickEvent) When() time.Time {
     return u.at
 }
 
-
 // NOTE: UI Loop organization:
 //
 // 1) Store the duration of the previous iteration
@@ -399,6 +416,10 @@ func (u UpdateTickEvent) When() time.Time {
 // 4) Draw!
 
 func (env *Environment) Run() error {
+    // Clear our screen before doing anything else.
+    env.screen.Clear()
+    env.screen.Show()
+
     env.exitRequested = false
     var err error
 
@@ -429,7 +450,7 @@ func (env *Environment) Run() error {
             switch ev := e.(type) {
             case *tcell.EventResize:
                 cols, rows := ev.Size()
-                err = env.ForwardResize(env.rootID, 0, 0, rows, cols, )
+                err = env.ForwardResize(env.rootID, 0, 0, rows, cols)
                 break
 
             case *tcell.EventKey:
