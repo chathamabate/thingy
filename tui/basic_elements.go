@@ -2,28 +2,28 @@ package tui
 
 import "github.com/gdamore/tcell/v2"
 
-type BasicTextElement struct {
+type TextElement struct {
     *DefaultElement
 
     style tcell.Style
     text string
 }
 
-func NewTextElement(s tcell.Style, t string) *BasicTextElement {
-    return &BasicTextElement{
+func NewTextElement(s tcell.Style, t string) *TextElement {
+    return &TextElement{
         DefaultElement: NewDefaultElement(),
         style: s,
         text: t,
     }
 }
 
-func TextElement(s tcell.Style, t string) ElementFactory {
+func TextElementF(s tcell.Style, t string) ElementFactory {
     return func (env *Environment) (ElementID, error) {
         return env.Register(NewTextElement(s, t))
     }
 }
 
-func (bt *BasicTextElement) Draw(s tcell.Screen) {
+func (bt *TextElement) Draw(s tcell.Screen) {
     if bt.GetRows() == 0 || bt.GetCols() == 0 {
         return
     }
@@ -70,6 +70,33 @@ type BorderedElement struct {
 
     titleStyle tcell.Style 
     borderStyle tcell.Style
+}
+
+func NewBorderedElement(t string, ts tcell.Style, bs tcell.Style) *BorderedElement {
+    return &BorderedElement{
+        DefaultElement: NewDefaultElement(),
+        title: t,
+        titleStyle: ts,
+        borderStyle: bs,
+    }
+}
+
+func BorderedElementF(t string, ts tcell.Style, bs tcell.Style, ef ElementFactory) ElementFactory {
+    return func (env *Environment) (ElementID, error) {
+        cid, err := ef(env) 
+        if err != nil {
+            return -1, err
+        }
+
+        eid, err := env.Register(NewBorderedElement(t, ts, bs))
+        if err != nil {
+            return -1, err
+        }
+
+        // This will never error.
+        env.Attach(eid, cid)
+        return eid, nil
+    }
 }
 
 func (be *BorderedElement) Resize(ectx *ElementContext, r, c int, rows, cols int) error {

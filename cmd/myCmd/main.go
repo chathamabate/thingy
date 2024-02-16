@@ -26,7 +26,17 @@ func main() {
     pg := "Hello World, wooo, wooo, wooo, wooo, wooo, wooo"
 
     eid, err := env.CreateAndRegister(
-        tui.TextElement(tcell.StyleDefault, pg))
+        tui.BorderedElementF(
+            "My Element",
+            tcell.StyleDefault,
+            tcell.StyleDefault.Foreground(tcell.ColorLightCyan), 
+            tui.TextElementF(
+                tcell.StyleDefault,
+                pg,
+            ),
+        ),
+    )
+
     if err != nil {
         log.Fatal(err)
     }
