@@ -131,12 +131,51 @@ const (
     topend = '\u2577'
 )
 
+// This omits left and right endpoints/corners.
+func (be *BorderedElement) drawTitleLine(s tcell.Screen) {
+    if len(be.title) == 0 || be.GetCols() < 7 {
+        for c := 1; c < be.GetCols(); c++ {
+            s.SetContent(be.GetC() + c, be.GetR(), horiz, nil, be.borderStyle)
+        }
+
+        return
+    }
+
+    // Otherwise we actually draw the title!
+    s.SetContent(be.GetC() + 1, be.GetR(), horiz, nil, be.borderStyle)
+    s.SetContent(be.GetC() + 2, be.GetR(), ' ', nil, be.borderStyle)
+
+    linePos := 3
+    for _, ru := range be.title {
+        s.SetContent(be.GetC() + linePos, be.GetR(), ru, nil, be.titleStyle) 
+        
+        linePos++
+        if linePos == be.GetCols() - 3 {
+            break
+        }
+    }
+
+    s.SetContent(be.GetC() + linePos, be.GetR(), ' ', nil, be.borderStyle)
+    linePos++
+
+    for ; linePos < be.GetCols() - 1; linePos++ {
+        s.SetContent(be.GetC() + linePos, be.GetR(), horiz, nil, be.borderStyle)
+    }
+}
+
 // We are just going to redraw the border here...
-//
 func (be *BorderedElement) Draw(s tcell.Screen) {
     if be.GetRows() == 0 || be.GetCols() == 0 {
         return
     }
+
+    // The title will be bordered on the left and right by spaces.
+    // These spaces will have the border's style tho.
+    // If the title is empty, no spaces will be added to the border.
+    // 
+    // The title will be fit in a space of size:
+    // cols - 6.
+    // leftcorner + (1 horiz) + space + title + (n horiz) + rightcorner = cols.
 
     // Single cell, do nothing.
     if be.GetCols() == 1 && be.GetRows() == 1 {
@@ -159,11 +198,7 @@ func (be *BorderedElement) Draw(s tcell.Screen) {
     // Single row. cols >= 2
     if be.GetRows() == 1 {
         s.SetContent(be.GetC(), be.GetR(), leftend, nil, be.borderStyle)
-
-        for c := 1; c < be.GetCols() - 1; c++ {
-            s.SetContent(be.GetC() + c, be.GetR(), horiz, nil, be.borderStyle)
-        }
-
+        be.drawTitleLine(s)
         s.SetContent(be.GetC() + be.GetCols() - 1, be.GetR(), rightend, nil, be.borderStyle)
 
         return
@@ -171,9 +206,11 @@ func (be *BorderedElement) Draw(s tcell.Screen) {
 
     // be.GetRows() >= 2 && be.GetCols() >= 2
 
-    // Horizontal borders.
+    // Title Line
+    be.drawTitleLine(s)
+
+    // Bottom Horizontal borders.
     for c := 1; c < be.GetCols() - 1; c++ {
-        s.SetContent(be.GetC() + c, be.GetR(), horiz, nil, be.borderStyle)
         s.SetContent(be.GetC() + c, be.GetR() + be.GetRows() - 1, horiz, nil, be.borderStyle)
     }
 

@@ -27,8 +27,8 @@ func main() {
 
     eid, err := env.CreateAndRegister(
         tui.BorderedElementF(
-            "My Element",
-            tcell.StyleDefault,
+            "My Very Long Titled Element !!!!!!!!!!!",
+            tcell.StyleDefault.Background(tcell.ColorLightSalmon).Foreground(tcell.ColorBlack),
             tcell.StyleDefault.Foreground(tcell.ColorLightCyan), 
             tui.TextElementF(
                 tcell.StyleDefault,
