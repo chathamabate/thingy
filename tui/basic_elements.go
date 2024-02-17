@@ -2,6 +2,8 @@ package tui
 
 import "github.com/gdamore/tcell/v2"
 
+// -------------------------------------- Text Element --------------------------------------
+
 type TextElement struct {
     *DefaultElement
 
@@ -60,6 +62,24 @@ func (bt *TextElement) Draw(s tcell.Screen) {
     }
 }
 
+// -------------------------------------- Bordered Element --------------------------------------
+
+const (
+    horiz = '\u2500' 
+    vert = '\u2502'
+
+    topleft = '\u250C'
+    topright = '\u2510'
+    bottomleft = '\u2514'
+    bottomright = '\u2518'
+    
+    leftend = '\u2576'
+    rightend = '\u2574'
+
+    bottomend = '\u2575'
+    topend = '\u2577'
+)
+
 // A bordered element has a title and border.
 // If the title is an empty string, just a border.
 // A bordered element MUST have one and only one child element.
@@ -115,21 +135,6 @@ func (be *BorderedElement) HandleEvent(ectx *ElementContext, ev tcell.Event) err
     return cctx.ForwardEvent(ev)
 }
 
-const (
-    horiz = '\u2500' 
-    vert = '\u2502'
-
-    topleft = '\u250C'
-    topright = '\u2510'
-    bottomleft = '\u2514'
-    bottomright = '\u2518'
-    
-    leftend = '\u2576'
-    rightend = '\u2574'
-
-    bottomend = '\u2575'
-    topend = '\u2577'
-)
 
 // This omits left and right endpoints/corners.
 func (be *BorderedElement) drawTitleLine(s tcell.Screen) {
@@ -226,5 +231,65 @@ func (be *BorderedElement) Draw(s tcell.Screen) {
     s.SetContent(be.GetC() + be.GetCols() - 1, be.GetR() + be.GetRows() - 1, bottomright, nil, be.borderStyle)
     s.SetContent(be.GetC(), be.GetR() + be.GetRows() - 1, bottomleft, nil, be.borderStyle)
 }
+
+// -------------------------------------- Divided Element --------------------------------------
+
+// A divided element holds a variable number of child elements. 
+// A divided element CAN hold zero elements.
+// A divided element can hold column divisions or row division, but not both.
+//
+// A division's size can be variable (with a flex coeficient)
+// Or a division's size can be fixed (with an exact row or column amount)
+
+type DivisionSpec interface {
+    IsFixed() bool
+    GetFixedSize() int
+
+    IsVariable() bool
+    GetFlexCoef() int
+}
+
+type FixedSpec struct {
+    fixedSize int
+}
+
+func (fs FixedSpec) IsFixed() bool {
+    return true
+}
+
+func (fs FixedSpec) GetFixedSize() int {
+    return fs.fixedSize
+}
+
+func (fs FixedSpec) IsVaraible() bool {
+    return false
+}
+
+func (fs FixedSpec) GetFlexCoef() int {
+    return 0
+}
+
+type FlexSpec struct {
+    flexCoef int
+}
+
+func (fs FlexSpec) IsFixed() bool {
+    return false
+}
+
+func (fs FlexSpec) GetFixedSize() int {
+    return 0
+}
+
+func (fs FlexSpec) IsVaraible() bool {
+    return true
+}
+
+func (fs FlexSpec) GetFlexCoef() int {
+    return fs.flexCoef
+}
+
+
+
 
 

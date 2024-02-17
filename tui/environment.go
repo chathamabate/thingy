@@ -109,7 +109,7 @@ func (env *Environment) Register(e Element) (ElementID, error) {
             env: env,
             parentID: NULL_EID,
             selfID: eid,
-            childIDs: make([]ElementID, 0),
+            children: make([]ChildContext, 0),
         },
         e: e,
     }
@@ -183,25 +183,30 @@ func (env *Environment) attach(pid ElementID, eid ElementID, at bool, index int)
     // Map our element to its new parent.
     ectx.parentID = pid
 
+    cctx := ChildContext{
+        id: eid,
+        attrs: make(map[string]interface{}),
+    }
+
     // Map parent to its new child (at the right index)
-    cidsLen := len(pctx.childIDs)
+    cLen := len(pctx.children)
 
     if !at {
-        pctx.childIDs = append(pctx.childIDs, eid)
+        pctx.children = append(pctx.children, cctx)
 
-        return cidsLen, nil
+        return cLen, nil
     }
 
     // Otherwise we use index!
-    if index < 0 || cidsLen < index {
+    if index < 0 || cLen < index {
         return 0, fmt.Errorf("attach: Bad index given: %d", index)
     }
 
-    pctx.childIDs = append(pctx.childIDs, 0)
-    for i := cidsLen; i > index ; i-- {
-        pctx.childIDs[i] = pctx.childIDs[i-1]
+    pctx.children = append(pctx.children, ChildContext{})
+    for i := cLen; i > index ; i-- {
+        pctx.children[i] = pctx.children[i-1]
     }
-    pctx.childIDs[index] = eid
+    pctx.children[index] = cctx
 
     return index, nil
 }
@@ -230,15 +235,15 @@ func (env *Environment) Detach(eid ElementID) error {
     // element.
 
     pctx := env.elements[pid].ectx
-    parentCIDs := pctx.childIDs
+    parentChildren := pctx.children
 
     // eid must be in the child array of parent.
     // Find its index, then perform the removal.
     i := 0
-    for ; parentCIDs[i] != eid; i++ {
+    for ; parentChildren[i].id != eid; i++ {
     }
 
-    pctx.childIDs = append(parentCIDs[:i], parentCIDs[i+1:]...)
+    pctx.children = append(parentChildren[:i], parentChildren[i+1:]...)
 
     return nil
 }
@@ -269,6 +274,58 @@ func (env *Environment) MakeRoot(eid ElementID) error {
     // screen.
     cols, rows := env.screen.Size() 
     err = env.ForwardResize(env.rootID, 0, 0, rows, cols)
+
+    return nil
+}
+
+// Child Attribute Functions.
+
+func (env *Environment) getChildAttrs(eid ElementID, childIndex int) (map[string]interface{}, error) {
+    ee, err := env.getEnvEntry(eid)
+    if err != nil {
+        return nil, fmt.Errorf("getChildAttrs: %w", err)
+    }
+
+    cLen := len(ee.ectx.children)
+    if childIndex < 0 || cLen <= childIndex {
+        return nil, fmt.Errorf("getChildAttrs: Bad childIndex: %d", childIndex)
+    }
+
+    return ee.ectx.children[childIndex].attrs, nil
+}
+
+func (env *Environment) GetChildAttr(eid ElementID, childIndex int, key string) (interface{}, error) {
+    attrs, err := env.getChildAttrs(eid, childIndex) 
+    if err != nil {
+        return nil, fmt.Errorf("GetChildAttr: %w", err)
+    }
+
+    attr, ok := attrs[key]
+    if !ok {
+        return nil, fmt.Errorf("GetChildAttr: Key not found %s", key)
+    }
+
+    return attr, nil
+}
+
+func (env *Environment) SetChildAttr(eid ElementID, childIndex int, key string, val interface{}) error {
+    attrs, err := env.getChildAttrs(eid, childIndex) 
+    if err != nil {
+        return fmt.Errorf("SetChildAttr: %w", err)
+    }
+
+    attrs[key] = val
+
+    return nil
+}
+
+func (env *Environment) DeleteChildAttr(eid ElementID, childIndex int, key string) error {
+    attrs, err := env.getChildAttrs(eid, childIndex) 
+    if err != nil {
+        return fmt.Errorf("DeleteChildAttr: %w", err)
+    }
+
+    delete(attrs, key)
 
     return nil
 }
@@ -339,8 +396,8 @@ func (env *Environment) draw(eid ElementID) bool {
     }
 
     // Next draw children.
-    for _, cid := range ee.ectx.childIDs {
-        drawOccured = env.draw(cid) || drawOccured
+    for _, cctx := range ee.ectx.children {
+        drawOccured = env.draw(cctx.id) || drawOccured
     }
 
     return drawOccured
@@ -365,7 +422,9 @@ func (env *Environment) Deregister(eid ElementID) error {
     }
 
     // Now, we first deregister all children.
-    for _, cid := range ectx.childIDs {
+    for _, cctx := range ectx.children {
+        cid := cctx.id
+
         // sever parent tie. 
         env.elements[cid].ectx.parentID = NULL_EID
         env.Deregister(cid) // this should always succeed.
