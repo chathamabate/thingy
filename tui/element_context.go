@@ -99,8 +99,26 @@ func (ectx *ElementContext) RequestExit() {
     ectx.env.RequestExit()
 }
 
-func (ectx *ElementContext) ForwardResize(r, c int, rows, cols int) error {
-    return ectx.env.ForwardResize(ectx.selfID, r, c, rows, cols)
+func (ectx *ElementContext) GetWidth() int {
+    width, _ := ectx.env.GetWidth(ectx.selfID)
+    return width
+}
+
+func (ectx *ElementContext) ForwardNewWidth(w int) error {
+    return ectx.env.SetWidth(ectx.selfID, w)
+}
+
+func (ectx *ElementContext) GetHeight() int {
+    height, _ := ectx.env.GetHeight(ectx.selfID)
+    return height
+}
+
+func (ectx *ElementContext) ForwardNewHeight(h int) error {
+    return ectx.env.SetHeight(ectx.selfID, h)
+}
+
+func (ectx *ElementContext) SetViewport(vp Viewport) error {
+    return ectx.env.SetViewport(ectx.selfID, vp)
 }
 
 func (ectx *ElementContext) ForwardEvent(ev tcell.Event) error {

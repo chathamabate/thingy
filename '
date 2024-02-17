@@ -6,19 +6,6 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
-
-type Viewport struct {
-    // Coordinates of where the viewport should be 
-    // rendered on screen.
-    x, y int
-
-    // Offset into the element which is being rendered.
-    xOff, yOff int
-
-    // Dimmensions of the viewport.
-    width, height int
-}
-
 // An element factory is meant to create an element then register
 // it into the environment.
 // Returning the element's new ID.
@@ -39,24 +26,20 @@ type Element interface {
 
     // This should resize the given element.
     //
+    // NOTE: if this is a container element, a resize should be
+    // called recursively for child elements.
+    // 
+    // No need to set the draw flag in this function, this is automatically
+    // handled by the environment when a resize is forwarded.
+    // Resize(ectx *ElementContext, r, c int, rows, cols int) error
 
     // Every element will have a width and height.
-    // SetWidth/Height may throw errors, since some elements may not allow
-    // for such operations.
-    // For example an element which grows downward based on the elements it
-    // contains may not allow for the user to randomly set its height.
-    // Using SetWidth/Height always triggers the draw flag (If there is no error that is)
-
-    // NOTE: The below 3 Set calls will all automatically trigger a redraw for this
-    // element. They SHOULD be recursive, if child elements must also be resized somehow.
 
     GetWidth(ectx *ElementContext) int
     SetWidth(ectx *ElementContext, w int) error
 
     GetHeight(ectx *ElementContext) int
     SetHeight(ectx *ElementContext, h int) error
-
-    SetViewport(ectx *ElementContext, vp Viewport) error
 
     // All non-resize events are forwarded through this call.
     // NOTE: This call should never block or result in an infinite looping of

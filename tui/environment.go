@@ -330,23 +330,75 @@ func (env *Environment) DeleteChildAttr(eid ElementID, childIndex int, key strin
     return nil
 }
 
-// Event Forwarding Functions.
+// Sizing Stuff.
 
-func (env *Environment) ForwardResize(eid ElementID, r, c int, rows, cols int) error {
+func (env *Environment) GetWidth(eid ElementID) (int, error) {
     ee, err := env.getEnvEntry(eid)
     if err != nil {
-        return fmt.Errorf("ForwardResize: %w", err)
+        return 0, fmt.Errorf("GetWidth: %w", err)
     }
 
-    err = ee.e.Resize(ee.ectx, r, c, rows, cols)
+    return ee.e.GetWidth(ee.ectx), nil
+}
+
+func (env *Environment) SetWidth(eid ElementID, w int) error {
+    ee, err := env.getEnvEntry(eid)
     if err != nil {
-        return fmt.Errorf("ForwardResize: %w", err)
+        return fmt.Errorf("SetWidth: %w", err)
+    }
+
+    err = ee.e.SetWidth(ee.ectx, w)
+
+    if err != nil {
+        return fmt.Errorf("SetWidth: %w", err)
     }
 
     ee.e.SetDrawFlag(true)
-
-    return err
+    return nil
 }
+
+func (env *Environment) GetHeight(eid ElementID) (int, error) {
+    ee, err := env.getEnvEntry(eid)
+    if err != nil {
+        return 0, fmt.Errorf("GetHeight: %w", err)
+    }
+
+    return ee.e.GetHeight(ee.ectx), nil
+}
+
+func (env *Environment) SetHeight(eid ElementID, h int) error {
+    ee, err := env.getEnvEntry(eid)
+    if err != nil {
+        return fmt.Errorf("SetHeight: %w", err)
+    }
+
+    err = ee.e.SetHeight(ee.ectx, h)
+
+    if err != nil {
+        return fmt.Errorf("SetHeight: %w", err)
+    }
+
+    ee.e.SetDrawFlag(true)
+    return nil
+}
+
+func (env *Environment) SetViewport(eid ElementID, vp Viewport) error {
+    ee, err := env.getEnvEntry(eid)
+    if err != nil {
+        return fmt.Errorf("SetViewport: %w", err)
+    }
+
+    err = ee.e.SetViewport(ee.ectx, vp)
+
+    if err != nil {
+        return fmt.Errorf("SetViewport: %w", err)
+    }
+
+    ee.e.SetDrawFlag(true)
+    return nil
+}
+
+// Event Forwarding Functions.
 
 func (env *Environment) ForwardEvent(eid ElementID, ev tcell.Event) error {
     ee, err := env.getEnvEntry(eid)
