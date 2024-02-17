@@ -1,6 +1,10 @@
 package tui
 
-import "github.com/gdamore/tcell/v2"
+import (
+	"fmt"
+
+	"github.com/gdamore/tcell/v2"
+)
 
 // -------------------------------------- Text Element --------------------------------------
 
@@ -282,6 +286,69 @@ func (fs FlexSpec) FlexFactor() int {
     return fs.flexFactor
 }
 
+// Helper function for calculating dimmensions of child elements.
+func mapToDims(totalDim int, specs []DivisionSpec) ([]int, error) { 
+    totalFixedDim := 0
+    totalFlexFactor := 0
+    for i, spec := range specs {
+        if spec.IsFixed() {
+            if spec.FixedSize() < 0 {
+                return nil, fmt.Errorf("mapToDims: Negative fixed dim: %d", i)
+            }
+            
+            totalFixedDim += spec.FixedSize()
+        } else {
+            if spec.FlexFactor() < 0 {
+                return nil, fmt.Errorf("mapToDims: Negative flex factor: %d", i)
+            }
+
+            totalFlexFactor += spec.FlexFactor()
+        }
+    }
+
+    flexUnit := 0
+    if totalFlexFactor > 0 && totalFixedDim < totalDim {
+        flexUnit := (totalDim - totalFixedDim) / totalFlexFactor
+    }
+
+    dims := make([]int, len(specs)) 
+
+    pos := 0
+    for i, spec := range specs {
+        spaceLeft := totalDim - pos 
+
+        dims[i] = 0
+
+        // NOTE: if we reach a fixed size division which cannot be drawn,
+        // Everything is given size 0! There is simply not enough room!
+        if spec.IsFixed() {
+            if spec.FixedSize() > spaceLeft {
+                return make([]int, len(specs)), nil
+            }
+            
+            dims[i] = spec.FixedSize()
+        } else {
+            dims[i] = spec.FlexFactor() * flexUnit
+        }
+
+        // Advance our position.
+        pos += dims[i]
+    }
+
+    // NOTE: If there is space left after calculating the lengths
+    // Just add it to the first flex division found.
+    // If there are no flex divisions, this area will be left blank.
+    // Fixed divisions NEVER resize.
+    if pos < totalDim {
+        spaceLeft := totalDim - pos 
+        for i, spec := range specs {
+            if spec.IsFlexible() {
+                dims[i] += spaceLeft
+            }
+        }
+    }
+}
+
 // A divided element holds a variable number of child elements. 
 // A divided element CAN hold zero elements.
 // A divided element can hold column divisions or row division, but not both.
@@ -306,10 +373,91 @@ type DividedElement struct {
 }
 
 // NOTE:
-// Children 
+// All children need a "div-spec" attribute which maps to a DivisionSpec.
+// This attribute determines how the child will be resized.
+//
+// A fixed division is either displayed at its specified size, or not displayed at all.
+// The moment a fixed division cannot be displayed, drawing stops, no subsequent flex divisions
+// will be displayed. flex divisions are only displayed if there is enough room including all fixed 
+// divisions.
 
 func (de *DividedElement) Resize(ectx *ElementContext, r, c int, rows, cols int) error {
+    de.DefaultElement.Resize(ectx, r, c, rows, cols)
 
+    numChildren := ectx.NumChildren()
+
+    totalFixed := 0
+    totalFlex := 0
+    
+    var totalDim int
+    if de.columnDivisions {
+        totalDim = cols
+    } else {
+        totalDim = rows
+    }
+
+    // First, let's extract the division specs.
+    specs := make([]DivisionSpec, numChildren)   
+    for i := 0; i < numChildren; i++ {
+        val, err := ectx.GetChildAttr(i, "div-spec")
+        if err != nil {
+            return err
+        }
+
+        ds, ok := val.(DivisionSpec)
+        if !ok {
+            return fmt.Errorf("Resize: div-spec has incorred type: %d", i)
+        }
+
+        specs[i] = ds
+
+        if ds.IsFixed() {
+            totalFixed += ds.FixedSize()
+        } else {
+            totalFlex += ds.FlexFactor()
+        }
+    }
+
+    // flexUnit = (rows or columns) per unit of flex.
+    flexUnit := 0
+    if totalFixed < totalDim && totalFlex > 0 {
+        flexUnit = (totalDim - totalFixed) / totalFlex
+    }
+
+    pos := 0
+    index := 0
+    for ; index < numChildren; index++ {
+        spaceLeft := totalDim - pos
+
+        var dim int   
+        if spec.IsFixed() {
+            dim = spec.FixedSize()
+        } else {
+            dim = spec.FlexFactor() * flexUnit
+        }
+
+        if dim > spaceLeft {
+            dim = 0
+        }
+
+        
+    }
+
+    for i, spec := range specs {
+        spaceLeft := totalDim - pos
+
+        var dim int   
+        if spec.IsFixed() {
+            dim = spec.FixedSize()
+        } else {
+            dim = spec.FlexFactor() * flexUnit
+        }
+
+        if dim == 0 || {
+
+    }
+
+    return nil
 }
 
 
