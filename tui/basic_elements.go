@@ -234,19 +234,12 @@ func (be *BorderedElement) Draw(s tcell.Screen) {
 
 // -------------------------------------- Divided Element --------------------------------------
 
-// A divided element holds a variable number of child elements. 
-// A divided element CAN hold zero elements.
-// A divided element can hold column divisions or row division, but not both.
-//
-// A division's size can be variable (with a flex coeficient)
-// Or a division's size can be fixed (with an exact row or column amount)
-
 type DivisionSpec interface {
     IsFixed() bool
-    GetFixedSize() int
+    FixedSize() int
 
-    IsVariable() bool
-    GetFlexCoef() int
+    IsFlexible() bool
+    FlexFactor() int
 }
 
 type FixedSpec struct {
@@ -257,39 +250,67 @@ func (fs FixedSpec) IsFixed() bool {
     return true
 }
 
-func (fs FixedSpec) GetFixedSize() int {
+func (fs FixedSpec) FixedSize() int {
     return fs.fixedSize
 }
 
-func (fs FixedSpec) IsVaraible() bool {
+func (fs FixedSpec) IsFlexible() bool {
     return false
 }
 
-func (fs FixedSpec) GetFlexCoef() int {
+func (fs FixedSpec) FlexFactor() int {
     return 0
 }
 
 type FlexSpec struct {
-    flexCoef int
+    flexFactor int
 }
 
 func (fs FlexSpec) IsFixed() bool {
     return false
 }
 
-func (fs FlexSpec) GetFixedSize() int {
+func (fs FlexSpec) FixedSize() int {
     return 0
 }
 
-func (fs FlexSpec) IsVaraible() bool {
+func (fs FlexSpec) IsFlexible() bool {
     return true
 }
 
-func (fs FlexSpec) GetFlexCoef() int {
-    return fs.flexCoef
+func (fs FlexSpec) FlexFactor() int {
+    return fs.flexFactor
 }
 
+// A divided element holds a variable number of child elements. 
+// A divided element CAN hold zero elements.
+// A divided element can hold column divisions or row division, but not both.
+//
+// A division's size can be variable (with a flex coeficient)
+// Or a division's size can be fixed (with an exact row or column amount)
 
+type DividedElement struct {
+    *DefaultElement
+    
+    // true = column divisions.
+    // false = row divisions.
+    columnDivisions bool   
+
+    // If true, there were will line dividers between each division.
+    dividers bool
+
+    // NOTE: Since a divided element can hold no elements and/or
+    // not be entirely filled by its children, extra space (and dividers) will
+    // take this style.
+    style tcell.Style
+}
+
+// NOTE:
+// Children 
+
+func (de *DividedElement) Resize(ectx *ElementContext, r, c int, rows, cols int) error {
+
+}
 
 
 
